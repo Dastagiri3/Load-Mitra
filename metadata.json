@@ -1,0 +1,6 @@
+{
+  "name": "LoadMitra",
+  "description": "A digital marketplace connecting truck owners and shippers across India for transparent, direct, and commission-free freight transport bookings.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,79 @@
+{
+  "entities": {
+    "user": {
+      "title": "User Profile",
+      "description": "Profile details and KYC verification status of transporters and shippers connected to Firebase Auth",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Unique Google Firebase user ID"
+        },
+        "fullName": {
+          "type": "string",
+          "description": "Official name on Aadhaar KYC card"
+        },
+        "email": {
+          "type": "string",
+          "description": "User registration email address"
+        },
+        "role": {
+          "type": "string",
+          "enum": [
+            "shipper",
+            "transporter"
+          ],
+          "description": "Role selection in Indian freight marketplace"
+        },
+        "companyName": {
+          "type": "string",
+          "description": "Registered company or transport agency name"
+        },
+        "phone": {
+          "type": "string",
+          "description": "Contact number"
+        },
+        "aadhaarNo": {
+          "type": "string",
+          "description": "Unique 12-digit Indian national identity number"
+        },
+        "aadhaarVerified": {
+          "type": "boolean"
+        },
+        "dlNo": {
+          "type": "string",
+          "description": "Heavy transport commercial driving license registration"
+        },
+        "dlVerified": {
+          "type": "boolean"
+        },
+        "gstNo": {
+          "type": "string",
+          "description": "Indian central Goods & Services tax identifier"
+        },
+        "gstVerified": {
+          "type": "boolean"
+        },
+        "isComplete": {
+          "type": "boolean"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "userId",
+        "fullName",
+        "email",
+        "role"
+      ]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "user",
+      "description": "Collection of user registration profiles and onboarding stages keyed by auth user ID"
+    }
+  }
+}

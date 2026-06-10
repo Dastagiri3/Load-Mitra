@@ -1,0 +1,45 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Global safety net catches all unspecified collections
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Auth validation helper
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // Owner checks
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // User entity structure and data-type validation blueprint
+    function isValidUser(data) {
+      return data.userId is string 
+        && data.userId.size() <= 128
+        && data.fullName is string
+        && data.fullName.size() >= 2
+        && data.fullName.size() <= 100
+        && data.email is string
+        && data.email.size() <= 200
+        && data.role is string
+        && (data.role == "shipper" || data.role == "transporter")
+        && (data.phone == null || (data.phone is string && data.phone.size() <= 20));
+    }
+
+    // Rules matching individual user document paths
+    match /users/{userId} {
+      allow get: if isSignedIn();
+      allow list: if false; // Prohibits bulk scraping of the registry
+      allow create: if isOwner(userId) && isValidUser(request.resource.data) && request.resource.data.userId == request.auth.uid;
+      allow update: if isOwner(userId) 
+        && isValidUser(request.resource.data) 
+        && request.resource.data.userId == resource.data.userId; // Strict immutability constraint on primary keys
+      allow delete: if isOwner(userId);
+    }
+  }
+}
