@@ -7,6 +7,7 @@ export interface Bid {
   truckDetails: string;
   timestamp: string;
   status: 'pending' | 'accepted' | 'declined';
+  createdBy?: string;
 }
 
 export interface Load {
@@ -28,6 +29,7 @@ export interface Load {
   suggestedLabel?: string;
   instructions?: string;
   createdAt: string;
+  createdBy?: string;
 }
 
 export interface Truck {
@@ -43,6 +45,7 @@ export interface Truck {
   status: 'available' | 'booked' | 'on_trip';
   activeDate: string;
   createdAt: string;
+  createdBy?: string;
 }
 
 export interface Booking {
@@ -54,6 +57,7 @@ export interface Booking {
   podName?: string; // Digital Proof of Delivery mock file upload
   podUploadedAt?: string;
   createdAt: string;
+  createdBy?: string;
 }
 
 export interface KYCProfile {

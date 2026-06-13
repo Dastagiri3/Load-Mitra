@@ -35,6 +35,7 @@ interface FirebaseLoginProps {
 }
 
 export default function FirebaseLogin({ onSuccess, onEnterSandbox }: FirebaseLoginProps) {
+  const [selectedFlow, setSelectedFlow] = useState<"shipper" | "transporter" | null>(null);
   const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -230,6 +231,109 @@ export default function FirebaseLogin({ onSuccess, onEnterSandbox }: FirebaseLog
       setLoading(false);
     }
   };
+
+  if (!selectedFlow) {
+    return (
+      <div className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center p-4 relative overflow-hidden" id="portal-selector-container">
+        {/* Abstract Highway Lines Background */}
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,#0f172a,transparent)] pointer-events-none" />
+        <div className="absolute bottom-[-100px] left-[-100px] w-[500px] h-[500px] bg-amber-500/5 rounded-full blur-[120px] pointer-events-none" />
+        <div className="absolute top-[-100px] right-[-100px] w-[500px] h-[500px] bg-emerald-500/5 rounded-full blur-[120px] pointer-events-none" />
+
+        <div className="max-w-2xl w-full relative z-10 space-y-8 p-1">
+          {/* Logo and Greeting Header */}
+          <div className="text-center space-y-2">
+            <div className="inline-flex items-center gap-2 bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 font-black px-4 py-2 rounded-2xl shadow-lg border border-amber-400/20 mb-2">
+              <Truck className="w-5 h-5" />
+              <span className="font-display tracking-tight text-sm">LOADMITRA</span>
+            </div>
+            <h1 className="text-3xl font-extrabold text-slate-100 tracking-tight font-display sm:text-4xl">
+              National Zero-Broker Dispatch Portal
+            </h1>
+            <p className="text-xs sm:text-sm text-slate-400 max-w-md mx-auto leading-relaxed">
+              Direct deals, zero commission, and instant Aadhaar KYC verifications for the Indian trucking ecosystem.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Load Provider Gateway Column */}
+            <button
+              onClick={() => {
+                setSelectedFlow("shipper");
+                setRole("shipper");
+              }}
+              className="group bg-slate-900 hover:bg-slate-850 border border-slate-800 hover:border-emerald-500/55 p-6 rounded-3xl text-left shadow-2xl transition-all duration-300 transform hover:-translate-y-1 relative cursor-pointer"
+            >
+              <div className="absolute top-4 right-4 bg-emerald-500/10 text-emerald-400 text-[9px] font-mono tracking-widest px-2.5 py-1 rounded-full uppercase font-bold">
+                Shipper Gate
+              </div>
+              <div className="w-12 h-12 bg-emerald-500/10 text-emerald-400 rounded-2xl flex items-center justify-center mb-5 group-hover:scale-110 transition-transform duration-300">
+                <Briefcase className="w-6 h-6" />
+              </div>
+              <h3 className="text-lg font-bold text-slate-100 group-hover:text-amber-500 transition-colors">
+                Load Provider / Factory
+              </h3>
+              <p className="text-xs text-slate-400 mt-2 leading-relaxed">
+                For factory owners, logistics managers, brokers, and raw material suppliers. Post active cargo freight demands and negotiate direct bids.
+              </p>
+              <div className="mt-5 flex items-center gap-1.5 text-xs font-bold text-emerald-400">
+                <span>Enter Shipper Portal</span>
+                <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+              </div>
+            </button>
+
+            {/* Transporter Gateway Column */}
+            <button
+              onClick={() => {
+                setSelectedFlow("transporter");
+                setRole("transporter");
+              }}
+              className="group bg-slate-900 hover:bg-slate-850 border border-slate-800 hover:border-amber-500/55 p-6 rounded-3xl text-left shadow-2xl transition-all duration-300 transform hover:-translate-y-1 relative cursor-pointer"
+            >
+              <div className="absolute top-4 right-4 bg-amber-500/10 text-amber-500 text-[9px] font-mono tracking-widest px-2.5 py-1 rounded-full uppercase font-bold">
+                Carrier Gate
+              </div>
+              <div className="w-12 h-12 bg-amber-500/10 text-amber-400 rounded-2xl flex items-center justify-center mb-5 group-hover:scale-110 transition-transform duration-300">
+                <Truck className="w-6 h-6" />
+              </div>
+              <h3 className="text-lg font-bold text-slate-100 group-hover:text-amber-500 transition-colors">
+                Transporter / Driver
+              </h3>
+              <p className="text-xs text-slate-400 mt-2 leading-relaxed">
+                For truck drivers, fleet operators, transporter companies, and owner-truckers. Search available cargo loads, place bids, and manage trips.
+              </p>
+              <div className="mt-5 flex items-center gap-1.5 text-xs font-bold text-amber-400">
+                <span>Enter Carrier Portal</span>
+                <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+              </div>
+            </button>
+          </div>
+
+          {/* Sandbox trial mode */}
+          <div className="max-w-md mx-auto bg-slate-900/40 border border-slate-900 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-3 text-center sm:text-left shadow-lg">
+            <div>
+              <span className="text-[9px] uppercase font-bold tracking-wider text-emerald-400 font-mono bg-emerald-950/60 border border-emerald-950/80 px-2 py-0.5 rounded">Fast Demo Sandbox Mode</span>
+              <p className="text-slate-400 text-[11px] mt-1">
+                Skip registration setups and instantly browse open client cargo boards, place bid quotes, and explore map features in sandbox mock mode.
+              </p>
+            </div>
+            <button
+              onClick={onEnterSandbox}
+              className="bg-emerald-500/10 hover:bg-emerald-500 text-emerald-400 hover:text-slate-950 text-xs font-bold px-4 py-2 rounded-xl border border-emerald-500/20 hover:border-emerald-500 shrink-0 transition flex items-center gap-1 cursor-pointer"
+            >
+              <PlayCircle className="w-4 h-4" />
+              <span>Sandbox Trial</span>
+            </button>
+          </div>
+
+          <div className="text-center font-mono text-[9px] text-slate-650 flex items-center justify-center gap-1">
+            <ShieldCheck className="w-3.5 h-3.5 text-slate-650" />
+            <span>Direct and secure connections backed by National Aadhaar & GST document checks.</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center p-4 relative overflow-hidden" id="auth-main-container">
@@ -468,6 +572,20 @@ export default function FirebaseLogin({ onSuccess, onEnterSandbox }: FirebaseLog
                     </button>
                   </span>
                 )}
+              </div>
+
+              <div className="text-center pt-3 mt-1 border-t border-slate-800/50">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedFlow(null);
+                    setIsSignUp(false);
+                    setOnboardingStep(1);
+                  }}
+                  className="text-slate-500 hover:text-slate-350 active:text-amber-500 text-xs font-semibold cursor-pointer py-1 block w-full transition duration-150"
+                >
+                  ← Switch dispatch gate path
+                </button>
               </div>
             </form>
           )}

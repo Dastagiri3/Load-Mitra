@@ -68,12 +68,217 @@
         "email",
         "role"
       ]
+    },
+    "load": {
+      "title": "Cargo Freight Load",
+      "description": "Dispatched cargo available on the public board for bids",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "origin": {
+          "type": "string"
+        },
+        "destination": {
+          "type": "string"
+        },
+        "material": {
+          "type": "string"
+        },
+        "weight": {
+          "type": "number"
+        },
+        "truckType": {
+          "type": "string"
+        },
+        "loadingDate": {
+          "type": "string"
+        },
+        "priceProposal": {
+          "type": "number"
+        },
+        "shipperName": {
+          "type": "string"
+        },
+        "shipperPhone": {
+          "type": "string"
+        },
+        "isVerified": {
+          "type": "boolean"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "active",
+            "in_negotiation",
+            "booked",
+            "dispatched",
+            "in_transit",
+            "delivered"
+          ]
+        },
+        "bids": {
+          "type": "array",
+          "description": "List of active bids on the platform"
+        },
+        "aiDescription": {
+          "type": "string"
+        },
+        "highlights": {
+          "type": "array"
+        },
+        "suggestedLabel": {
+          "type": "string"
+        },
+        "instructions": {
+          "type": "string"
+        },
+        "createdAt": {
+          "type": "string"
+        },
+        "createdBy": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "origin",
+        "destination",
+        "material",
+        "weight",
+        "truckType",
+        "priceProposal",
+        "shipperName",
+        "shipperPhone",
+        "status"
+      ]
+    },
+    "truck": {
+      "title": "Registered Truck",
+      "description": "Heavy goods commercial vehicle registered on Driver directory",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "driverName": {
+          "type": "string"
+        },
+        "driverPhone": {
+          "type": "string"
+        },
+        "truckNo": {
+          "type": "string"
+        },
+        "truckType": {
+          "type": "string"
+        },
+        "capacity": {
+          "type": "number"
+        },
+        "currentLocation": {
+          "type": "string"
+        },
+        "preferredRoute": {
+          "type": "string"
+        },
+        "isVerified": {
+          "type": "boolean"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "available",
+            "booked",
+            "on_trip"
+          ]
+        },
+        "activeDate": {
+          "type": "string"
+        },
+        "createdAt": {
+          "type": "string"
+        },
+        "createdBy": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "driverName",
+        "driverPhone",
+        "truckNo",
+        "truckType",
+        "capacity",
+        "currentLocation",
+        "status"
+      ]
+    },
+    "booking": {
+      "title": "Cargo Freight Booking Triplog",
+      "description": "Direct freight shipping contract between registered truckers and loaders",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "load": {
+          "type": "object"
+        },
+        "truck": {
+          "type": "object"
+        },
+        "finalPrice": {
+          "type": "number"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "booked",
+            "dispatched",
+            "in_transit",
+            "delivered"
+          ]
+        },
+        "podName": {
+          "type": "string"
+        },
+        "podUploadedAt": {
+          "type": "string"
+        },
+        "createdAt": {
+          "type": "string"
+        },
+        "createdBy": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "load",
+        "finalPrice",
+        "status",
+        "createdAt"
+      ]
     }
   },
   "firestore": {
     "/users/{userId}": {
       "schema": "user",
-      "description": "Collection of user registration profiles and onboarding stages keyed by auth user ID"
+      "description": "Collection of user registration profiles keyed by auth user ID"
+    },
+    "/loads/{loadId}": {
+      "schema": "load",
+      "description": "Collection of available cargo shipments and bids"
+    },
+    "/trucks/{truckId}": {
+      "schema": "truck",
+      "description": "Collection of available trucks and regional fleet operators"
+    },
+    "/bookings/{bookingId}": {
+      "schema": "booking",
+      "description": "Collection of real direct contract booking transits and electronic POD sign-offs"
     }
   }
 }

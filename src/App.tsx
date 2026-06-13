@@ -25,8 +25,53 @@ import {
 // Firebase client system SDK bindings
 import { auth, db } from "./firebase";
 import { onAuthStateChanged, signOut } from "firebase/auth";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, getDoc, collection, onSnapshot, setDoc, updateDoc, getDocFromServer } from "firebase/firestore";
 import FirebaseLogin from "./components/FirebaseLogin";
+
+enum OperationType {
+  CREATE = 'create',
+  UPDATE = 'update',
+  DELETE = 'delete',
+  LIST = 'list',
+  GET = 'get',
+  WRITE = 'write',
+}
+
+function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
+  const errInfo = {
+    error: error instanceof Error ? error.message : String(error),
+    authInfo: {
+      userId: auth.currentUser?.uid,
+      email: auth.currentUser?.email,
+      emailVerified: auth.currentUser?.emailVerified,
+      isAnonymous: auth.currentUser?.isAnonymous
+    },
+    operationType,
+    path
+  };
+  console.error('Firestore Error: ', JSON.stringify(errInfo));
+  throw new Error(JSON.stringify(errInfo));
+}
+
+async function testConnection() {
+  try {
+    await getDocFromServer(doc(db, 'test', 'connection'));
+    console.log("Firebase Connection: Succesfully connected and read default route.");
+  } catch (error) {
+    if (error instanceof Error) {
+      if (error.message.includes('the client is offline')) {
+        console.error("Firebase Connection Error: The client is offline. Please check your Firebase configuration.");
+      } else if (error.message.toLowerCase().includes('permission') || error.message.toLowerCase().includes('insufficient')) {
+        console.log("Firebase Connection: Successfully reached Firestore server (received permission-denied as expected by rules).");
+      } else {
+        console.warn("Firebase Connection Warning:", error.message);
+      }
+    } else {
+      console.warn("Firebase Connection: Unexpected error: ", error);
+    }
+  }
+}
+testConnection();
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState<any>(null);
@@ -154,107 +199,283 @@ export default function App() {
     });
   };
 
-  // Local storage synchronization
+  // Synchronize profiles, loads, trucks, bookings to Firestore or fallback locally
   useEffect(() => {
-    localStorage.setItem("loadmitra_loads", JSON.stringify(loads));
-  }, [loads]);
+    if (!currentUser || sandboxMode) {
+      const savedLoads = localStorage.getItem("loadmitra_loads");
+      setLoads(savedLoads ? JSON.parse(savedLoads) : SEED_LOADS);
+      return;
+    }
+
+    const unsubscribe = onSnapshot(collection(db, "loads"), async (snapshot) => {
+      if (snapshot.empty) {
+        console.log("Firestore 'loads' collection is empty. Auto-seeding with standard loads...");
+        try {
+          for (const l of SEED_LOADS) {
+            await setDoc(doc(db, "loads", l.id), l);
+          }
+        } catch (err) {
+          console.error("Failed to seed initial loads: ", err);
+        }
+      } else {
+        const loadedList: Load[] = [];
+        snapshot.forEach((d) => {
+          loadedList.push(d.data() as Load);
+        });
+        loadedList.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        setLoads(loadedList);
+      }
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, "loads");
+    });
+
+    return () => unsubscribe();
+  }, [currentUser, sandboxMode]);
 
   useEffect(() => {
-    localStorage.setItem("loadmitra_trucks", JSON.stringify(trucks));
-  }, [trucks]);
+    if (!currentUser || sandboxMode) {
+      const savedTrucks = localStorage.getItem("loadmitra_trucks");
+      setTrucks(savedTrucks ? JSON.parse(savedTrucks) : SEED_TRUCKS);
+      return;
+    }
+
+    const unsubscribe = onSnapshot(collection(db, "trucks"), async (snapshot) => {
+      if (snapshot.empty) {
+        console.log("Firestore 'trucks' collection is empty. Auto-seeding with standard trucks...");
+        try {
+          for (const t of SEED_TRUCKS) {
+            await setDoc(doc(db, "trucks", t.id), t);
+          }
+        } catch (err) {
+          console.error("Failed to seed initial trucks: ", err);
+        }
+      } else {
+        const loadedList: Truck[] = [];
+        snapshot.forEach((d) => {
+          loadedList.push(d.data() as Truck);
+        });
+        loadedList.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        setTrucks(loadedList);
+      }
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, "trucks");
+    });
+
+    return () => unsubscribe();
+  }, [currentUser, sandboxMode]);
 
   useEffect(() => {
-    localStorage.setItem("loadmitra_bookings", JSON.stringify(bookings));
-  }, [bookings]);
+    if (!currentUser || sandboxMode) {
+      const savedBookings = localStorage.getItem("loadmitra_bookings");
+      setBookings(savedBookings ? JSON.parse(savedBookings) : []);
+      return;
+    }
+
+    const unsubscribe = onSnapshot(collection(db, "bookings"), (snapshot) => {
+      const loadedList: Booking[] = [];
+      snapshot.forEach((d) => {
+        loadedList.push(d.data() as Booking);
+      });
+      loadedList.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      setBookings(loadedList);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, "bookings");
+    });
+
+    return () => unsubscribe();
+  }, [currentUser, sandboxMode]);
 
   useEffect(() => {
-    localStorage.setItem("loadmitra_profile", JSON.stringify(currentProfile));
-  }, [currentProfile]);
+    if (sandboxMode || !currentUser) {
+      localStorage.setItem("loadmitra_profile", JSON.stringify(currentProfile));
+    }
+  }, [currentProfile, currentUser, sandboxMode]);
+
+  const handleUpdateProfile = async (p: KYCProfile) => {
+    setCurrentProfile(p);
+    if (currentUser && !sandboxMode) {
+      try {
+        await setDoc(doc(db, "users", currentUser.uid), {
+          userId: currentUser.uid,
+          fullName: p.fullName,
+          email: currentUser.email || "",
+          role: p.role,
+          companyName: p.companyName,
+          phone: p.phone,
+          aadhaarNo: p.aadhaarNo || "",
+          aadhaarVerified: p.aadhaarVerified || false,
+          dlNo: p.dlNo || "",
+          dlVerified: p.dlVerified || false,
+          gstNo: p.gstNo || "",
+          gstVerified: p.gstVerified || false,
+          isComplete: true,
+          createdAt: new Date().toISOString()
+        });
+      } catch (err) {
+        handleFirestoreError(err, OperationType.WRITE, `users/${currentUser.uid}`);
+      }
+    }
+  };
 
   // ACTIONS MACHINE CALLBACKS
-  const handlePostLoad = (newL: Load) => {
-    setLoads(prev => [newL, ...prev]);
+  const handlePostLoad = async (newL: Load) => {
+    if (currentUser && !sandboxMode) {
+      try {
+        await setDoc(doc(db, "loads", newL.id), {
+          ...newL,
+          createdBy: currentUser.uid
+        });
+      } catch (err) {
+        handleFirestoreError(err, OperationType.CREATE, `loads/${newL.id}`);
+      }
+    } else {
+      setLoads(prev => [newL, ...prev]);
+      localStorage.setItem("loadmitra_loads", JSON.stringify([newL, ...loads]));
+    }
   };
 
-  const handleRegisterTruck = (newT: Truck) => {
-    setTrucks(prev => [newT, ...prev]);
+  const handleRegisterTruck = async (newT: Truck) => {
+    if (currentUser && !sandboxMode) {
+      try {
+        await setDoc(doc(db, "trucks", newT.id), {
+          ...newT,
+          createdBy: currentUser.uid
+        });
+      } catch (err) {
+        handleFirestoreError(err, OperationType.CREATE, `trucks/${newT.id}`);
+      }
+    } else {
+      setTrucks(prev => [newT, ...prev]);
+      localStorage.setItem("loadmitra_trucks", JSON.stringify([newT, ...trucks]));
+    }
   };
 
-  const handleAddBid = (loadId: string, newBid: Bid) => {
-    setLoads(prevLoads => {
-      return prevLoads.map(load => {
-        if (load.id === loadId) {
-          return {
-            ...load,
-            bids: [...load.bids, newBid]
-          };
-        }
-        return load;
+  const handleAddBid = async (loadId: string, newBid: Bid) => {
+    const targetLoad = loads.find(l => l.id === loadId);
+    if (!targetLoad) return;
+
+    const updatedLoad = {
+      ...targetLoad,
+      bids: [...targetLoad.bids, newBid]
+    };
+
+    if (currentUser && !sandboxMode) {
+      try {
+        await setDoc(doc(db, "loads", loadId), updatedLoad);
+      } catch (err) {
+        handleFirestoreError(err, OperationType.UPDATE, `loads/${loadId}`);
+      }
+    } else {
+      setLoads(prevLoads => {
+        const after = prevLoads.map(load => load.id === loadId ? updatedLoad : load);
+        localStorage.setItem("loadmitra_loads", JSON.stringify(after));
+        return after;
       });
-    });
+    }
   };
 
-  const handleAcceptBid = (loadId: string, bidId: string) => {
-    // 1. Locate specific load and bid
+  const handleAcceptBid = async (loadId: string, bidId: string) => {
     const targetLoad = loads.find(l => l.id === loadId);
     if (!targetLoad) return;
     const targetBid = targetLoad.bids.find(b => b.id === bidId);
     if (!targetBid) return;
 
     // 2. Mark load status as booked en-route
-    setLoads(prev => prev.map(l => {
-      if (l.id === loadId) {
-        return {
-          ...l,
-          status: 'booked'
-        };
-      }
-      return l;
-    }));
+    const updatedLoad: Load = {
+      ...targetLoad,
+      status: 'booked'
+    };
 
     // 3. Sprout new Triplog Booking contract
     const newBooking: Booking = {
       id: `LM-BK-${Math.floor(100000 + Math.random() * 900000)}`,
       load: {
-        ...targetLoad,
+        ...updatedLoad,
         status: 'booked'
       },
       finalPrice: targetBid.bidAmount,
       status: 'booked',
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
+      createdBy: currentUser?.uid || "guest"
     };
 
-    setBookings(prev => [newBooking, ...prev]);
+    if (currentUser && !sandboxMode) {
+      try {
+        await setDoc(doc(db, "loads", loadId), updatedLoad);
+        await setDoc(doc(db, "bookings", newBooking.id), newBooking);
+      } catch (err) {
+        handleFirestoreError(err, OperationType.WRITE, `bookings/${newBooking.id}`);
+      }
+    } else {
+      setLoads(prev => {
+        const afterLoads = prev.map(l => l.id === loadId ? updatedLoad : l);
+        localStorage.setItem("loadmitra_loads", JSON.stringify(afterLoads));
+        return afterLoads;
+      });
+      setBookings(prev => {
+        const afterBks = [newBooking, ...prev];
+        localStorage.setItem("loadmitra_bookings", JSON.stringify(afterBks));
+        return afterBks;
+      });
+    }
+
     setActiveTab("bookings");
-    
-    // Quick notification alerts
     alert(`🎉 Quote Accepted! Booking generated on LoadMitra direct ledger for the amount of ₹${targetBid.bidAmount.toLocaleString()}. Go to Triplogs to track highway progress.`);
   };
 
-  const handleUpdateBookingStatus = (bookingId: string, status: 'booked' | 'dispatched' | 'in_transit' | 'delivered') => {
-    setBookings(prev => prev.map(bk => {
-      if (bk.id === bookingId) {
-        return {
-          ...bk,
-          status
-        };
+  const handleUpdateBookingStatus = async (bookingId: string, status: 'booked' | 'dispatched' | 'in_transit' | 'delivered') => {
+    if (currentUser && !sandboxMode) {
+      try {
+        const targetBk = bookings.find(b => b.id === bookingId);
+        if (targetBk) {
+          const updatedBk = { ...targetBk, status };
+          await setDoc(doc(db, "bookings", bookingId), updatedBk);
+        }
+      } catch (err) {
+        handleFirestoreError(err, OperationType.UPDATE, `bookings/${bookingId}`);
       }
-      return bk;
-    }));
+    } else {
+      setBookings(prev => {
+        const after = prev.map(bk => bk.id === bookingId ? { ...bk, status } : bk);
+        localStorage.setItem("loadmitra_bookings", JSON.stringify(after));
+        return after;
+      });
+    }
   };
 
-  const handleUploadPOD = (bookingId: string, file: string) => {
-    setBookings(prev => prev.map(bk => {
-      if (bk.id === bookingId) {
-        return {
-          ...bk,
-          status: 'delivered',
-          podName: file,
-          podUploadedAt: new Date().toISOString()
-        };
+  const handleUploadPOD = async (bookingId: string, file: string) => {
+    if (currentUser && !sandboxMode) {
+      try {
+        const targetBk = bookings.find(b => b.id === bookingId);
+        if (targetBk) {
+          const updatedBk = {
+            ...targetBk,
+            status: 'delivered' as const,
+            podName: file,
+            podUploadedAt: new Date().toISOString()
+          };
+          await setDoc(doc(db, "bookings", bookingId), updatedBk);
+        }
+      } catch (err) {
+        handleFirestoreError(err, OperationType.UPDATE, `bookings/${bookingId}`);
       }
-      return bk;
-    }));
+    } else {
+      setBookings(prev => {
+        const after = prev.map(bk => {
+          if (bk.id === bookingId) {
+            return {
+              ...bk,
+              status: 'delivered' as const,
+              podName: file,
+              podUploadedAt: new Date().toISOString()
+            };
+          }
+          return bk;
+        });
+        localStorage.setItem("loadmitra_bookings", JSON.stringify(after));
+        return after;
+      });
+    }
     
     alert(`✓ Proof of Delivery (POD) uploaded: "${file}". Shipments successfully marked as DELIVERED directly with cargo shipper.`);
   };
@@ -450,7 +671,9 @@ export default function App() {
               loads={loads}
               trucks={trucks}
               currentProfile={currentProfile}
-              onChangeProfile={setCurrentProfile}
+              currentUser={currentUser}
+              sandboxMode={sandboxMode}
+              onChangeProfile={handleUpdateProfile}
               onAddBid={handleAddBid}
               onAcceptBid={handleAcceptBid}
               onRegisterTruck={handleRegisterTruck}
@@ -463,7 +686,9 @@ export default function App() {
               loads={loads}
               trucks={trucks}
               currentProfile={currentProfile}
-              onChangeProfile={setCurrentProfile}
+              currentUser={currentUser}
+              sandboxMode={sandboxMode}
+              onChangeProfile={handleUpdateProfile}
               onAddBid={handleAddBid}
               onAcceptBid={handleAcceptBid}
               onRegisterTruck={handleRegisterTruck}
@@ -482,7 +707,7 @@ export default function App() {
           {activeTab === "kyc" && (
             <KYCVerification 
               profile={currentProfile}
-              onChangeProfile={setCurrentProfile}
+              onChangeProfile={handleUpdateProfile}
             />
           )}
 

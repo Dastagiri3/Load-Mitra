@@ -31,6 +31,39 @@ service cloud.firestore {
         && (data.phone == null || (data.phone is string && data.phone.size() <= 20));
     }
 
+    // Valid load entity structure
+    function isValidLoad(data) {
+      return data.id is string
+        && data.origin is string
+        && data.destination is string
+        && data.material is string
+        && data.weight is number
+        && data.truckType is string
+        && data.priceProposal is number
+        && data.shipperName is string
+        && data.shipperPhone is string
+        && data.status is string;
+    }
+
+    // Valid truck entity structure
+    function isValidTruck(data) {
+      return data.id is string
+        && data.driverName is string
+        && data.driverPhone is string
+        && data.truckNo is string
+        && data.truckType is string
+        && data.capacity is number
+        && data.currentLocation is string
+        && data.status is string;
+    }
+
+    // Valid booking entity structure
+    function isValidBooking(data) {
+      return data.id is string
+        && data.finalPrice is number
+        && data.status is string;
+    }
+
     // Rules matching individual user document paths
     match /users/{userId} {
       allow get: if isSignedIn();
@@ -40,6 +73,30 @@ service cloud.firestore {
         && isValidUser(request.resource.data) 
         && request.resource.data.userId == resource.data.userId; // Strict immutability constraint on primary keys
       allow delete: if isOwner(userId);
+    }
+
+    // National Loads Marketplace Collection
+    match /loads/{loadId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && isValidLoad(request.resource.data);
+      allow update: if isSignedIn() && isValidLoad(request.resource.data);
+      allow delete: if isSignedIn();
+    }
+
+    // Available Trucks Directory Collection
+    match /trucks/{truckId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && isValidTruck(request.resource.data);
+      allow update: if isSignedIn() && isValidTruck(request.resource.data);
+      allow delete: if isSignedIn();
+    }
+
+    // Triplogs Bookings Collection
+    match /bookings/{bookingId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && isValidBooking(request.resource.data);
+      allow update: if isSignedIn() && isValidBooking(request.resource.data);
+      allow delete: if isSignedIn();
     }
   }
 }

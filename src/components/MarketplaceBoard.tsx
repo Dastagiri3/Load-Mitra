@@ -26,6 +26,8 @@ interface MarketplaceBoardProps {
   loads: Load[];
   trucks: Truck[];
   currentProfile: KYCProfile;
+  currentUser: any;
+  sandboxMode?: boolean;
   onChangeProfile: (profile: KYCProfile) => void;
   onAddBid: (loadId: string, bid: Bid) => void;
   onAcceptBid: (loadId: string, bidId: string) => void;
@@ -37,6 +39,8 @@ export default function MarketplaceBoard({
   loads, 
   trucks, 
   currentProfile, 
+  currentUser,
+  sandboxMode,
   onChangeProfile,
   onAddBid, 
   onAcceptBid, 
@@ -74,6 +78,34 @@ export default function MarketplaceBoard({
   // Contact modal simulation
   const [contactInfo, setContactInfo] = useState<{ name: string; phone: string; title: string } | null>(null);
 
+  // Derived state for Role-Based Dashboards
+  const myLoads = loads.filter(l => 
+    (currentUser?.uid && l.createdBy === currentUser.uid) || 
+    (currentProfile.phone && l.shipperPhone === currentProfile.phone && currentProfile.fullName !== "Transporter Partner")
+  );
+
+  const myBidsReceivedCount = myLoads.reduce((sum, l) => sum + (l.bids ? l.bids.length : 0), 0);
+
+  const myTrucks = trucks.filter(t => 
+    (currentUser?.uid && t.createdBy === currentUser.uid) || 
+    (currentProfile.phone && t.driverPhone === currentProfile.phone)
+  );
+
+  // Find all bids/interests placed by this transporter
+  const myBids: { load: Load; bid: Bid }[] = [];
+  loads.forEach(l => {
+    if (l.bids) {
+      l.bids.forEach(b => {
+        if (
+          (currentUser?.uid && b.createdBy === currentUser.uid) || 
+          (currentProfile.phone && b.transporterPhone === currentProfile.phone)
+        ) {
+          myBids.push({ load: l, bid: b });
+        }
+      });
+    }
+  });
+
   const toggleExpandLoad = (loadId: string, defaultProposal: number) => {
     if (expandedLoadId === loadId) {
       setExpandedLoadId(null);
@@ -95,7 +127,8 @@ export default function MarketplaceBoard({
       transporterPhone: currentProfile.phone || "+91 9988776655",
       truckDetails: `${currentProfile.dlVerified ? '✓ Verified ' : ''}Transporter Truck`,
       timestamp: new Date().toISOString(),
-      status: 'pending'
+      status: 'pending',
+      createdBy: currentUser?.uid || "guest"
     };
 
     onAddBid(loadId, newBid);
@@ -209,6 +242,250 @@ export default function MarketplaceBoard({
           )}
         </div>
       </div>
+
+      {/* 🟢 SHIPPER DASHBOARD HOME VIEW */}
+      {currentProfile.role === "shipper" && (
+        <div className="bg-gradient-to-br from-slate-900 to-slate-950 border border-slate-800 rounded-2xl p-5 space-y-4 shadow-xl" id="shipper-role-dashboard">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-slate-800/80 pb-3">
+            <div className="flex items-center gap-2">
+              <span className="p-2 bg-emerald-500/10 text-emerald-400 rounded-xl">
+                <Briefcase className="w-4 h-4" />
+              </span>
+              <div>
+                <h3 className="text-sm font-bold text-slate-100 uppercase tracking-wider">Shipper Portal Control Center</h3>
+                <p className="text-[10px] text-slate-400 mt-0.5">Manage posted logistics cargos, review carrier bids, and hire directly.</p>
+              </div>
+            </div>
+            
+            <button
+              onClick={() => onSelectTab("post-load")}
+              className="bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-black text-xs px-4 py-2.5 rounded-xl transition duration-150 flex items-center gap-1.5 cursor-pointer shadow-lg w-full sm:w-auto justify-center"
+            >
+              <PlusCircle className="w-4 h-4" />
+              <span>Post New Cargo Load</span>
+            </button>
+          </div>
+
+          {/* Metrics Row */}
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+            <div className="bg-slate-905/70 border border-slate-800/60 p-3.5 rounded-xl text-center space-y-1">
+              <span className="text-[9px] uppercase font-bold text-slate-400 font-mono">My Posted Cargos</span>
+              <span className="block text-xl font-bold font-mono text-emerald-400">{myLoads.length + (sandboxMode ? 1 : 0)}</span>
+            </div>
+            <div className="bg-slate-905/70 border border-slate-800/60 p-3.5 rounded-xl text-center space-y-1">
+              <span className="text-[9px] uppercase font-bold text-slate-400 font-mono">Carrier Quote Inquiries</span>
+              <span className="block text-xl font-bold font-mono text-amber-500">{myBidsReceivedCount + (sandboxMode ? 2 : 0)}</span>
+            </div>
+            <div className="col-span-2 md:col-span-1 bg-slate-905/70 border border-slate-800/60 p-3.5 rounded-xl text-center space-y-1">
+              <span className="text-[9px] uppercase font-bold text-slate-400 font-mono">My Active Shipments</span>
+              <span className="block text-xl font-bold font-mono text-blue-400">
+                {loads.filter(l => l.status === 'booked' || l.status === 'in_transit').length}
+              </span>
+            </div>
+          </div>
+
+          {/* My Posted Cargos List & Live Carrier Quotes */}
+          <div className="space-y-3">
+            <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest font-mono">My Active Cargo Listings ({myLoads.length})</h4>
+            
+            {myLoads.length === 0 ? (
+              <div className="p-6 bg-slate-950/40 text-center rounded-xl border border-slate-850/60">
+                <p className="text-xs text-slate-500 italic">No active cargo listing posted yet under this profile.</p>
+                <button
+                  onClick={() => onSelectTab("post-load")}
+                  className="mt-2 text-emerald-400 hover:underline text-xs font-bold font-mono inline-block"
+                >
+                  Post your first cargo requirement now →
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-2.5 max-h-72 overflow-y-auto pr-1">
+                {myLoads.map(load => (
+                  <div key={`my-l-${load.id}`} className="bg-slate-950/60 border border-slate-850 p-3.5 rounded-xl space-y-3">
+                    <div className="flex flex-col sm:flex-row justify-between sm:items-start gap-2">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-xs text-slate-200">{load.material} ({load.weight} Tons)</span>
+                          <span className="bg-emerald-950/40 border border-emerald-900 px-1.5 py-0.5 rounded text-[9px] uppercase tracking-wide text-emerald-400 font-mono font-bold">
+                            {load.status}
+                          </span>
+                        </div>
+                        <div className="text-[11px] text-slate-400 mt-1 font-semibold flex items-center gap-1.5">
+                          <MapPin className="w-3 h-3 text-red-500" />
+                          <span>{load.origin}</span>
+                          <span>→</span>
+                          <span>{load.destination}</span>
+                        </div>
+                      </div>
+                      <div className="text-left sm:text-right">
+                        <span className="text-[8px] text-slate-500 uppercase block">My Target Budget Rate</span>
+                        <span className="font-mono font-bold text-emerald-400 text-xs">₹{load.priceProposal.toLocaleString()}</span>
+                      </div>
+                    </div>
+
+                    {/* Received Bids for this load */}
+                    <div className="border-t border-slate-800/60 pt-2.5">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-2 font-mono">
+                        Quotes & Inquiry Interests ({load.bids.length})
+                      </span>
+                      
+                      {load.bids.length === 0 ? (
+                        <p className="text-[10px] text-slate-500 italic">Waiting for transporters to send inquiry proposals...</p>
+                      ) : (
+                        <div className="space-y-2">
+                          {load.bids.map(bid => (
+                            <div key={`bid-item-${bid.id}`} className="bg-slate-900/60 p-2.5 rounded-lg border border-slate-850 flex flex-col sm:flex-row justify-between sm:items-center gap-2.5">
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xs font-bold text-slate-200">{bid.transporterName}</span>
+                                  <span className="text-[9px] bg-slate-950 border border-slate-800 px-1.5 py-0.2 rounded font-mono text-slate-400">
+                                    {bid.truckDetails}
+                                  </span>
+                                </div>
+                                <span className="text-[10px] text-slate-400 block mt-0.5">Phone: {bid.transporterPhone}</span>
+                              </div>
+                              <div className="flex items-center justify-between sm:justify-end gap-3 border-t sm:border-0 border-slate-850/40 pt-2 sm:pt-0 w-full sm:w-auto">
+                                <div className="text-left sm:text-right">
+                                  <span className="text-[8px] text-slate-500 uppercase block">Offer rate</span>
+                                  <span className="font-mono font-bold text-amber-400 text-xs">₹{bid.bidAmount.toLocaleString()}</span>
+                                </div>
+                                <button
+                                  onClick={() => onAcceptBid(load.id, bid.id)}
+                                  className="bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-black text-[10px] px-3 py-1.5 rounded-lg uppercase tracking-wide transition shadow cursor-pointer"
+                                >
+                                  Accept Quote
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* 🟨 TRANSPORTER DASHBOARD HOME VIEW */}
+      {currentProfile.role === "transporter" && (
+        <div className="bg-gradient-to-br from-slate-900 to-slate-950 border border-slate-800 rounded-2xl p-5 space-y-4 shadow-xl" id="transporter-role-dashboard">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-slate-800/85 pb-3">
+            <div className="flex items-center gap-2">
+              <span className="p-2 bg-amber-500/10 text-amber-500 rounded-xl">
+                <TruckIcon className="w-4 h-4" />
+              </span>
+              <div>
+                <h3 className="text-sm font-bold text-slate-100 uppercase tracking-wider">Fleet & Transporter Dashboard</h3>
+                <p className="text-[10px] text-slate-400 mt-0.5">Submit quotations, review shipper connections, register active vehicles.</p>
+              </div>
+            </div>
+            
+            <button
+              onClick={() => {
+                setRegDriver(currentProfile.fullName);
+                setRegPhone(currentProfile.phone);
+                setShowRegisterTruck(true);
+              }}
+              className="bg-amber-500 hover:bg-amber-600 text-slate-950 font-black text-xs px-4 py-2.5 rounded-xl transition duration-150 flex items-center gap-1.5 cursor-pointer shadow-lg w-full sm:w-auto justify-center"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Register Active Vehicle</span>
+            </button>
+          </div>
+
+          {/* Metrics Row */}
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+            <div className="bg-slate-905/70 border border-slate-800/60 p-3.5 rounded-xl text-center space-y-1">
+              <span className="text-[9px] uppercase font-bold text-slate-400 font-mono">My Fleet Size</span>
+              <span className="block text-xl font-bold font-mono text-amber-400">{myTrucks.length}</span>
+            </div>
+            <div className="bg-slate-905/70 border border-slate-800/60 p-3.5 rounded-xl text-center space-y-1">
+              <span className="text-[9px] uppercase font-bold text-slate-400 font-mono font-bold text-emerald-400">Total Bids Sent</span>
+              <span className="block text-xl font-bold font-mono text-emerald-400">{myBids.length}</span>
+            </div>
+            <div className="col-span-2 md:col-span-1 bg-slate-905/70 border border-slate-800/60 p-3.5 rounded-xl text-center space-y-1">
+              <span className="text-[9px] uppercase font-bold text-slate-400 font-mono text-blue-400">Total Verified Trips</span>
+              <span className="block text-xl font-bold font-mono text-blue-400">
+                {trucks.filter(t => t.status === 'booked' || t.status === 'on_trip').length}
+              </span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            {/* Left: My Registered fleet */}
+            <div className="space-y-2.5">
+              <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest font-mono">My Registered Vehicles ({myTrucks.length})</h4>
+              {myTrucks.length === 0 ? (
+                <div className="p-4 bg-slate-950/40 text-center rounded-xl border border-slate-850/60">
+                  <p className="text-[11px] text-slate-500 italic">No registered vehicles listed yet.</p>
+                </div>
+              ) : (
+                <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                  {myTrucks.map(truck => (
+                    <div key={`my-t-${truck.id}`} className="bg-slate-950/60 border border-slate-850 p-3 rounded-lg flex justify-between items-center text-xs">
+                      <div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-mono font-bold text-slate-200">{truck.truckNo}</span>
+                          <span className="bg-slate-900 border border-slate-800 text-amber-400 text-[9px] px-1.5 py-0.1 rounded font-mono font-semibold">
+                            {truck.truckType}
+                          </span>
+                        </div>
+                        <span className="text-[10px] text-slate-400 block mt-0.5">Route preferred: {truck.preferredRoute}</span>
+                      </div>
+                      <span className="bg-emerald-950/25 text-emerald-400 border border-emerald-900 px-2 py-0.5 rounded text-[9px] uppercase font-mono font-bold tracking-wide">
+                        {truck.status}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Right: My bid quotations */}
+            <div className="space-y-2.5">
+              <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest font-mono">My Active Bid Quotes & Inquiries ({myBids.length})</h4>
+              {myBids.length === 0 ? (
+                <div className="p-4 bg-slate-950/40 text-center rounded-xl border border-slate-850/60">
+                  <p className="text-[11px] text-slate-500 italic">No quotations sent to shippers yet.</p>
+                </div>
+              ) : (
+                <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                  {myBids.map(({ load, bid }) => (
+                    <div key={`my-b-${bid.id}`} className="bg-slate-950/60 border border-slate-850 p-3 rounded-lg flex flex-col gap-1.5">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <span className="font-bold text-slate-200 text-xs block">{load.material} ({load.weight}T)</span>
+                          <span className="text-[10px] text-slate-400 flex items-center gap-1 mt-0.5 font-semibold">
+                            <MapPin className="w-3 h-3 text-red-500" />
+                            {load.origin} → {load.destination}
+                          </span>
+                        </div>
+                        <div className="text-right">
+                          <span className="font-mono font-bold text-amber-400 text-xs">₹{bid.bidAmount.toLocaleString()}</span>
+                          <span className="text-[8px] text-slate-550 uppercase block mt-0.5">My Bid Quote</span>
+                        </div>
+                      </div>
+                      <div className="flex justify-between items-center border-t border-slate-900/40 pt-1.5 mt-0.5">
+                        <span className="text-[9px] text-slate-450">Shipper Budget: <strong className="font-mono text-emerald-400">₹{load.priceProposal.toLocaleString()}</strong></span>
+                        <span className={`text-[9px] uppercase font-mono px-2 py-0.5 rounded ${
+                          load.status === 'booked' 
+                            ? 'bg-emerald-950/40 text-emerald-400 border border-emerald-900/55' 
+                            : 'bg-amber-950/40 text-amber-400 border border-amber-900/55'
+                        }`}>
+                          {load.status === 'booked' ? "Confirmed Booking" : "Awaiting Shipper"}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Search & Sliders */}
       <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-3">
@@ -454,6 +731,37 @@ export default function MarketplaceBoard({
                                 Post Quote
                               </button>
                             </div>
+
+                            <div className="flex items-center gap-2 py-1">
+                              <div className="h-px bg-slate-800/80 flex-1"></div>
+                              <span className="text-[9px] uppercase font-mono tracking-widest text-slate-500">OR</span>
+                              <div className="h-px bg-slate-800/80 flex-1"></div>
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const newBid: Bid = {
+                                  id: `bid_${Date.now()}`,
+                                  loadId: load.id,
+                                  bidAmount: load.priceProposal,
+                                  transporterName: currentProfile.fullName || "Transporter Mitra",
+                                  transporterPhone: currentProfile.phone || "+91 9988776655",
+                                  truckDetails: `${currentProfile.dlVerified ? '✓ DL Verified' : 'Transporter'} (Express Interest)`,
+                                  timestamp: new Date().toISOString(),
+                                  status: 'pending',
+                                  createdBy: currentUser?.uid || "guest"
+                                };
+                                onAddBid(load.id, newBid);
+                                setBidMsg(`⚡ Success! Expressed immediate interest at proposed ₹${load.priceProposal.toLocaleString()} freight rate directly to shipper.`);
+                                setTimeout(() => setBidMsg(""), 5000);
+                              }}
+                              className="w-full bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-slate-950 font-black text-xs py-2.5 rounded-lg transition duration-200 cursor-pointer text-center flex items-center justify-center gap-1.5 shadow"
+                            >
+                              <CheckCircle2 className="w-4 h-4" />
+                              Express Instant Interest (At Target ₹{load.priceProposal.toLocaleString()})
+                            </button>
+
                             <span className="block text-[10px] text-slate-500 text-center italic">
                               Shippers get notified immediately over our platform engine. No margins taken by LoadMitra.
                             </span>
