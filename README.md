@@ -1,6 +1,6 @@
 # 🚚 LoadMitra — National Zero-Broker Dispatch Portal
 
-### 🔗 **[LIVE PRODUCTION DEMO](https://load-mitra-sable.vercel.app/)** | 🔗 **[DEVELOPMENT VIEW](https://ais-dev-xuslr6rk3y4uzy2s7qr3uu-200892941191.asia-east1.run.app)**
+### 🔗 **[LIVE PRODUCTION DEMO](https://load-mitra-sable.vercel.app/)** 
 
 ---
 
