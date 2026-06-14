@@ -8,6 +8,8 @@ import KYCVerification from "./components/KYCVerification";
 import PostLoadForm from "./components/PostLoadForm";
 import BookingsCatalog from "./components/BookingsCatalog";
 import MarketInsights from "./components/MarketInsights";
+import SahayakChat from "./components/SahayakChat";
+import SahayakVoice from "./components/SahayakVoice";
 import { 
   Briefcase, 
   Truck as TruckIcon, 
@@ -19,7 +21,9 @@ import {
   ChevronRight,
   MapPin,
   Flame,
-  UserCheck
+  UserCheck,
+  MessageSquare,
+  Phone
 } from "lucide-react";
 
 // Firebase client system SDK bindings
@@ -659,6 +663,34 @@ export default function App() {
                 <span className="text-red-500 text-xs shrink-0 animate-pulse">! Action</span>
               )}
             </button>
+
+            <div className="text-[10px] text-slate-500 uppercase tracking-widest font-bold px-3 py-2 border-t border-slate-800/60 mt-1.5 pt-2.5 mb-1">
+              Sahayak AI Helplines
+            </div>
+
+            <button
+              onClick={() => setActiveTab("sahayak-chat")}
+              className={`w-full flex items-center gap-2.5 p-3 rounded-xl transition text-xs font-bold ${
+                activeTab === "sahayak-chat" 
+                  ? "bg-amber-500 text-slate-950" 
+                  : "text-slate-300 hover:bg-slate-800/50 hover:text-slate-100"
+              }`}
+            >
+              <MessageSquare className="w-4 h-4" />
+              <span>Sahayak Chat & Grounding</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab("sahayak-voice")}
+              className={`w-full flex items-center gap-2.5 p-3 rounded-xl transition text-xs font-bold ${
+                activeTab === "sahayak-voice" 
+                  ? "bg-amber-500 text-slate-950" 
+                  : "text-slate-300 hover:bg-slate-800/50 hover:text-slate-100"
+              }`}
+            >
+              <Phone className="w-4 h-4 text-emerald-400" />
+              <span>Live Voice Companion</span>
+            </button>
           </div>
         </div>
 
@@ -725,6 +757,14 @@ export default function App() {
               onUpdateBookingStatus={handleUpdateBookingStatus}
               onUploadPOD={handleUploadPOD}
             />
+          )}
+
+          {activeTab === "sahayak-chat" && (
+            <SahayakChat />
+          )}
+
+          {activeTab === "sahayak-voice" && (
+            <SahayakVoice />
           )}
 
         </div>
